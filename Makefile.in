@@ -120,10 +120,21 @@ $(PACKAGE)-$(VERSION).tar.gz: pnfdscan
 	@echo ""
 	@echo "*** $(PACKAGE)-$(VERSION).tar.gz created"
 
-check:	pnfdscan
-	rm -fr t && mkdir t && touch "t/f-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/f-åäö" && touch "t/f-åäö"
-	./pnfdscan -vv t
-	@echo OK
+check-setup:
+	@rm -fr t && mkdir t
+	@mkdir "t/d1-åäö" && touch "t/d1-åäö/f.txt" && convmv --notest -f utf8 -t utf8 --nfd "t/d1-åäö" >/dev/null 2>&1
+	@mkdir "t/d1-åäö" && touch "t/d1-åäö/f.txt"
+	@mkdir "t/d2-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/d2-åäö" >/dev/null 2>&1
+	@mkdir "t/d2-åäö" && touch -r "t/d1-åäö" "t/d2-åäö"
+	@echo "NFD" >"t/f-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/f-åäö" >/dev/null 2>&1
+	@echo "NFC" >"t/f-åäö"
+	@echo "NFD" >"t/nfd-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/nfd-åäö" >/dev/null 2>&1
+	@echo "NFC" >"t/nfc-åäö"
+
+check:	pnfdscan check-setup
+	@echo "Before:" ; ./pnfdscan -vv t
+	@echo "Autofix:" ; ./pnfdscan -aav t
+	@echo "After:" ; ./pnfdscan -vv t
 
 distcheck:
 	@echo OK

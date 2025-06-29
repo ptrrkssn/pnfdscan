@@ -117,8 +117,10 @@ add_action(char *dir,
 
     ap->type = type;
     ap->dir = dir;
+    
     ap->nfd.sb = *nfd_sp;
-    ap->nfd.name = strdup(nfc_name);
+    ap->nfd.name = strdup(nfd_name);
+    
     if (nfc_sp)
         ap->nfc.sb = *nfc_sp;
     if (nfc_name)
@@ -319,6 +321,19 @@ spin(void) {
 
 
 int
+is_newer(const struct stat *a,
+	 const struct stat *b) {
+    if (a->st_mtim.tv_sec > b->st_mtim.tv_sec ||
+	(a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
+	 a->st_mtim.tv_nsec > b->st_mtim.tv_nsec))
+	return 1;
+    if (a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
+	a->st_mtim.tv_nsec == b->st_mtim.tv_nsec)
+	return 0;
+    return -1;
+}
+
+int
 walker(const char *path,
        const struct stat *sp,
        int flag,
@@ -401,12 +416,12 @@ walker(const char *path,
 
             time2str(nfc_sb.st_mtime, nfc_timebuf, sizeof(nfc_timebuf));
 
-            if (nfc_sb.st_mtime >= sp->st_mtime) {
-
+	    if (is_newer(&nfc_sb, sp) >= 0) {
                 if (f_autofix) {
                     if (f_debug)
-                        printf("%s: Collision - Remove %s & Keep newer NFC (%s > %s) [size: %lu vs %lu]\n",
+                        printf("%s: Collision - %s %s & Keep newer NFC (%s > %s) [size: %lu vs %lu]\n",
                                path,
+			       f_remove ? "Remove" : "Rename",
                                rc_nfd ? "NFD" : "UTF8",
                                nfc_timebuf, nfd_timebuf,
                                nfc_sb.st_size, sp->st_size);
@@ -422,8 +437,9 @@ walker(const char *path,
             } else {
                 if (f_autofix) {
                     if (f_debug)
-                        printf("%s: Collision - Remove older NFC & Rename %s (%s < %s) [size: %lu vs %lu]\n",
+                        printf("%s: Collision - %s older NFC & Rename %s (%s < %s) [size: %lu vs %lu]\n",
                                path,
+			       f_remove ? "Remove" : "Rename",
                                rc_nfd ? "NFD" : "UTF8",
                                nfc_timebuf, nfd_timebuf,
                                nfc_sb.st_size, sp->st_size);
@@ -584,7 +600,7 @@ main(int argc,
 			    argv0, ap->dir, ap->nfd.name, ap->nfc.name, strerror(errno));
 		    exit(1);
 		} 
-		printf("%s/%s -> %s: Renamed NFD (NOT)\n",
+		printf("%s/%s -> %s: Renamed NFD\n",
 		       ap->dir, ap->nfd.name, ap->nfc.name);
 	    } else {
 		printf("%s/%s -> %s: Renamed NFD (NOT)\n",
@@ -603,6 +619,8 @@ main(int argc,
 		    if (rename(ap->nfd.name, new) < 0) {
 			fprintf(stderr, "%s: Error: %s/%s -> %s: Rename NFD: %s\n",
 				argv0, ap->dir, ap->nfd.name, new, strerror(errno));
+			if (f_ignore)
+			    continue;
 			exit(1);
 		    } 
 		    printf("%s/%s -> %s: Renamed NFD & Kept NFC\n",
@@ -623,12 +641,14 @@ main(int argc,
 		    if (rc < 0) {
 			fprintf(stderr, "%s: Error: %s/%s: Remove NFD: %s\n",
 				argv0, ap->dir, ap->nfd.name, strerror(errno));
+			if (f_ignore)
+			    continue;
 			exit(1);
 		    }
 		    printf("%s/%s: Removed NFD & Kept NFC\n",
 			   ap->dir, ap->nfd.name);
 		} else {
-		    printf("%s/%s: Renamed NFD & Kept NFC (NOT)\n",
+		    printf("%s/%s: Removed NFD & Kept NFC (NOT)\n",
 			   ap->dir, ap->nfd.name);
 		}
 	    }
@@ -645,6 +665,8 @@ main(int argc,
 		    if (rename(ap->nfc.name, new) < 0) {
 			fprintf(stderr, "%s: Error: %s/%s -> %s: Rename NFC: %s\n",
 				argv0, ap->dir, ap->nfc.name, new, strerror(errno));
+			if (f_ignore)
+			    continue;
 			exit(1);
 		    } 
 		    printf("%s/%s -> %s: Renamed NFC\n",
@@ -662,7 +684,7 @@ main(int argc,
 			    argv0, ap->dir, ap->nfd.name, ap->nfc.name, strerror(errno));
 		    exit(1);
 		} 
-		printf("%s/%s -> %s: %sRenamed NFD (NOT)\n",
+		printf("%s/%s -> %s: %sRenamed NFD\n",
 		       ap->dir, ap->nfd.name, ap->nfc.name,
 		       f_remove ? "Removed NFC & " : "");
 	    } else {
