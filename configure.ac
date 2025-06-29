@@ -10,6 +10,12 @@ AC_PROG_LN_S
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
+PKG_CHECK_MODULES([ICU], [icu-uc], [],
+  [AC_MSG_ERROR([icu-uc library is required but not found.])])
+  
+AC_SUBST(ICU_CFLAGS)
+AC_SUBST(ICU_LIBS)
+
 AC_SEARCH_LIBS([unorm2_isNormalized],[icuuc])
 
 # Checks for header files.
