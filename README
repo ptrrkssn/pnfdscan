@@ -1,7 +1,7 @@
 # pnfdscan
 
-A tool to scan filesystems for NFD encodes filename (and optionally correct into NFC)
+A tool to scan filesystems for NFD encoded names (and optionally correct into NFC)
 
-Compiles and is tested on FreeBSD & Linux (Ubuntu).
+Compiles and tested on FreeBSD & Linux (Ubuntu).
 
 Author: Peter Eriksson <pen@lysator.liu.se>
