@@ -56,6 +56,7 @@
 
 char *argv0 = "pnfdscan";
 
+int f_version = 0;
 int f_verbose = 0;
 int f_debug = 0;
 int f_update = 1;
@@ -63,6 +64,9 @@ int f_autofix = 0;
 int f_remove = 0;
 int f_ignore = 0;
 int f_mount = 0;
+int f_summary = 0;
+int f_check = 0;
+
 
 unsigned long n_ascii = 0;
 unsigned long n_nfd = 0;
@@ -74,6 +78,8 @@ unsigned long n_objects = 0;
 unsigned long n_unread = 0;
 unsigned long n_renamed = 0;
 unsigned long n_removed = 0;
+unsigned long n_errors = 0;
+
 
 const UNormalizer2 *nfd;
 const UNormalizer2 *nfc;
@@ -529,8 +535,8 @@ main(int argc,
         for (j = 1; argv[i][j]; j++)
             switch (argv[i][j]) {
 	    case 'V':
-		printf("[pnfdscan, version %s - %s]\n", PACKAGE_VERSION, PACKAGE_URL);
-		exit(0);
+		f_version++;
+		break;
             case 'v':
                 f_verbose++;
                 break;
@@ -545,6 +551,12 @@ main(int argc,
                 break;
 	    case 'r':
 		f_remove++;
+		break;
+	    case 's':
+		f_summary++;
+		break;
+	    case 'c':
+		f_check++;
 		break;
             case 'd':
                 f_debug++;
@@ -561,6 +573,8 @@ main(int argc,
                 puts("  -n          No-update (dry-run)");
                 puts("  -d          Increase debug level");
                 puts("  -i          Ignore non-fatal errors");
+		puts("  -s          Print summary");
+		puts("  -c          Check mode (exit code 1 if NFD found)");
 		puts("  -r          Remove (instead of rename) NFC objects");
                 puts("  -a          Autofix mode (use -aa to remove collisions)");
                 puts("  -x          Do not cross filesystem boundaries");
@@ -570,15 +584,17 @@ main(int argc,
                 exit(1);
             }
 
-    if (f_verbose > 2)
-        puts("Scanning:");
-
-    for (; i < argc; i++)
+    if (f_version) {
+	fprintf(stderr,
+		"[pnfdscan, version %s - %s]\n",
+		PACKAGE_VERSION, PACKAGE_URL);
+    }
+    
+    for (; i < argc; i++) {
+	if (f_verbose > 1)
+	    fprintf(stderr, "[%s]\n", argv[i]);
         nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
-
-
-    if (n_actions > 0 && f_verbose < 2)
-        printf("Processing %lu objects:\n", n_actions);
+    }
 
     for (ap = actions; ap; ap = ap->next) {
         if (!cwd || strcmp(cwd, ap->dir) != 0) {
@@ -619,6 +635,7 @@ main(int argc,
 		    if (rename(ap->nfd.name, new) < 0) {
 			fprintf(stderr, "%s: Error: %s/%s -> %s: Rename NFD: %s\n",
 				argv0, ap->dir, ap->nfd.name, new, strerror(errno));
+			n_errors++;
 			if (f_ignore)
 			    continue;
 			exit(1);
@@ -641,6 +658,7 @@ main(int argc,
 		    if (rc < 0) {
 			fprintf(stderr, "%s: Error: %s/%s: Remove NFD: %s\n",
 				argv0, ap->dir, ap->nfd.name, strerror(errno));
+			n_errors++;
 			if (f_ignore)
 			    continue;
 			exit(1);
@@ -665,6 +683,7 @@ main(int argc,
 		    if (rename(ap->nfc.name, new) < 0) {
 			fprintf(stderr, "%s: Error: %s/%s -> %s: Rename NFC: %s\n",
 				argv0, ap->dir, ap->nfc.name, new, strerror(errno));
+			n_errors++;
 			if (f_ignore)
 			    continue;
 			exit(1);
@@ -696,9 +715,10 @@ main(int argc,
 	}
     }
 
-    printf("[%lu ascii, %lu nfc, %lu nfd, %lu other, %lu unknown & %lu collisions; %lu objects, %lu unreadable, %lu renamed & %lu removed]\n",
-           n_ascii, n_nfc, n_nfd, n_other, n_unknown, n_coll,
-           n_objects, n_unread, n_renamed, n_removed);
+    if (f_summary)
+	printf("[%lu ascii, %lu nfc, %lu nfd, %lu other, %lu unknown & %lu collisions; %lu objects, %lu unreadable, %lu renamed & %lu removed]\n",
+	       n_ascii, n_nfc, n_nfd, n_other, n_unknown, n_coll,
+	       n_objects, n_unread, n_renamed, n_removed);
 
-    return 0;
+    return f_check ? ((n_coll > 0 ? 2 : n_nfd > 0)) : (n_errors > 0);
 }

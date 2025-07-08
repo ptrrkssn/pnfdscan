@@ -124,6 +124,7 @@ check-setup:
 	@rm -fr t && mkdir t
 	@mkdir "t/d1-åäö" && touch "t/d1-åäö/f.txt" && convmv --notest -f utf8 -t utf8 --nfd "t/d1-åäö" >/dev/null 2>&1
 	@mkdir "t/d1-åäö" && touch "t/d1-åäö/f.txt"
+	@mkdir "t/d1-åäö (0)"
 	@mkdir "t/d2-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/d2-åäö" >/dev/null 2>&1
 	@mkdir "t/d2-åäö" && touch -r "t/d1-åäö" "t/d2-åäö"
 	@echo "NFD" >"t/f-åäö" && convmv --notest -f utf8 -t utf8 --nfd "t/f-åäö" >/dev/null 2>&1
