@@ -1,7 +1,7 @@
 /*
  * dosattrib.c
  *
- * Copyright (c) 2025 Peter Eriksson <pen@lysator.liu.se>
+ * Copyright (c) 2026 Peter Eriksson <pen@lysator.liu.se>
  *
  * All rights reserved.
  *
@@ -66,6 +66,7 @@ int f_ignore = 0;
 int f_mount = 0;
 int f_summary = 0;
 int f_check = 0;
+int f_time = 0;
 
 
 unsigned long n_ascii = 0;
@@ -340,6 +341,22 @@ is_newer(const struct stat *a,
 }
 
 int
+p_time(const struct stat *sp,
+       FILE *fp) {
+  char buf[256];
+  struct tm *tp;
+
+  tp = localtime(&sp->st_mtime);
+  if (!tp)
+    fputs(" [???]", fp);
+  
+  if (strftime(buf, sizeof(buf), "%F %T", tp) <= 0)
+    fputs(" [???]", fp);
+  
+  return fprintf(fp, " [%s]", buf);
+}
+
+int
 walker(const char *path,
        const struct stat *sp,
        int flag,
@@ -358,15 +375,22 @@ walker(const char *path,
     }
 
     if (is_ascii(path+fp->base)) {
-	if (f_verbose > 1)
-	    printf("%s: ASCII\n", path);
+        if (f_verbose > 1) {
+	    printf("%s: ASCII", path);
+	    if (f_time)
+	      p_time(sp, stdout);
+	    putchar('\n');
+        }
 	
         n_ascii++;
         return 0;
     }
 
     if (!is_valid_utf8(path+fp->base)) {
-        printf("%s: Unknown Encoding - Skipping\n", path);
+        printf("%s: Unknown Encoding - Skipping", path);
+	if (f_time)
+	    p_time(sp, stdout);
+	putchar('\n');
         n_unknown++;
         return 0;
     }
@@ -383,15 +407,23 @@ walker(const char *path,
         return rc_nfc;
 
     if (!rc_nfc && !rc_nfd) {
-	if (f_verbose > 1)
-	    printf("%s: UTF8\n", path);
+        if (f_verbose > 1) {
+	    printf("%s: UTF8", path);
+	    if (f_time)
+	        p_time(sp, stdout);
+	    putchar('\n');
+	}
 	
         n_other++;
     }
 
     if (rc_nfc && !rc_nfd) {
-	if (f_verbose > 1)
-	    printf("%s: NFC\n", path);
+        if (f_verbose > 1) {
+	    printf("%s: NFC", path);
+	    if (f_time)
+	        p_time(sp, stdout);
+	    putchar('\n');
+	}
 	
         ++n_nfc;
     }
@@ -435,8 +467,13 @@ walker(const char *path,
 		    if (f_autofix > 1)
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFD);
                 } else {
-                    if (f_verbose)
-                        printf("%s: NFD\n", path);
+		    if (f_verbose) {
+		        printf("%s: NFD & NFC", path);
+			if (f_time)
+ 			    p_time(sp, stdout);
+			putchar('\n');
+		    }
+			
                     else
                         puts(path);
                 }
@@ -453,8 +490,12 @@ walker(const char *path,
 		    if (f_autofix > 1)
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFC);
                 } else {
-                    if (f_verbose)
-                        printf("%s: NFD\n", path);
+		    if (f_verbose) {
+                        printf("%s: NFD & NFC", path);
+			if (f_time)
+			    p_time(sp, stdout);
+			putchar('\n');
+		    }
                     else
                         puts(path);
                 }
@@ -473,8 +514,12 @@ walker(const char *path,
 
                 add_action(dirname(path, NULL), sp, path+fp->base, NULL, nfc_output, ACT_RENAME_NFD);
             } else {
-                if (f_verbose)
-                    printf("%s: NFD\n", path);
+	        if (f_verbose) {
+		    printf("%s: NFD", path);
+		    if (f_time)
+		        p_time(sp, stdout);
+		    putchar('\n');
+		}
                 else
                     puts(path);
             }
@@ -537,6 +582,9 @@ main(int argc,
 	    case 'V':
 		f_version++;
 		break;
+	    case 't':
+	        f_time++;
+		break;
             case 'v':
                 f_verbose++;
                 break;
@@ -574,6 +622,7 @@ main(int argc,
                 puts("  -d          Increase debug level");
                 puts("  -i          Ignore non-fatal errors");
 		puts("  -s          Print summary");
+		puts("  -t          Print timestamps");
 		puts("  -c          Check mode (exit code 1 if NFD found)");
 		puts("  -r          Remove (instead of rename) NFC objects");
                 puts("  -a          Autofix mode (use -aa to remove collisions)");
@@ -596,6 +645,10 @@ main(int argc,
         nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
     }
 
+    spin();
+    if (!isatty(2))
+      putc('\n', stderr);
+    
     for (ap = actions; ap; ap = ap->next) {
         if (!cwd || strcmp(cwd, ap->dir) != 0) {
             if (chdir(ap->dir) < 0) {
@@ -716,7 +769,8 @@ main(int argc,
     }
 
     if (f_summary)
-	printf("[%lu ascii, %lu nfc, %lu nfd, %lu other, %lu unknown & %lu collisions; %lu objects, %lu unreadable, %lu renamed & %lu removed]\n",
+        fprintf(stderr,
+	      "[%lu ascii, %lu nfc, %lu nfd, %lu other, %lu unknown & %lu collisions; %lu objects, %lu unreadable, %lu renamed & %lu removed]\n",
 	       n_ascii, n_nfc, n_nfd, n_other, n_unknown, n_coll,
 	       n_objects, n_unread, n_renamed, n_removed);
 
