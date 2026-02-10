@@ -312,17 +312,33 @@ is_valid_utf8(const char *str) {
 
 
 void
-spin(void) {
-    static time_t last;
+spin(int last_f) {
+    static time_t first = 0, last;
+    static unsigned long last_n_objects = 0;
     time_t now;
-
+    double dt;
+    
     if (!isatty(2))
         return;
 
     time(&now);
-    if (now != last) {
-        fprintf(stderr, "[%lu]\r", n_objects);
-        last = now;
+    if (!first)
+	first = now;
+
+    if (last_f) {
+	dt = difftime(now,first);
+	if (!dt)
+	    dt = 1;
+	fprintf(stderr, "[%lu scanned, %.0f o/s]       \n", n_objects, n_objects/dt);
+    } else {
+	dt = difftime(now,last);
+	if (dt) {
+	    unsigned long dn = n_objects - last_n_objects;
+	    last_n_objects = n_objects;
+	    
+	    fprintf(stderr, "[%lu scanned, %.0f o/s]       \r", n_objects, dn/dt);
+	    last = now;
+	}
     }
 }
 
@@ -367,7 +383,7 @@ walker(const char *path,
 
 
     ++n_objects;
-    spin();
+    spin(0);
 
     if (flag == FTW_NS) {
         n_unread++;
@@ -641,11 +657,11 @@ main(int argc,
     
     for (; i < argc; i++) {
 	if (f_verbose > 1)
-	    fprintf(stderr, "[%s]\n", argv[i]);
+	    fprintf(stderr, "%s\n", argv[i]);
         nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+	spin(1);
     }
 
-    spin();
     if (!isatty(2))
       putc('\n', stderr);
     
