@@ -468,7 +468,7 @@ walker(const char *path,
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFD);
                 } else {
 		    if (f_verbose) {
-		        printf("%s: NFD & NFC", path);
+		        printf("%s: NFD (with NFC collision)", path);
 			if (f_time)
  			    p_time(sp, stdout);
 			putchar('\n');
@@ -491,7 +491,7 @@ walker(const char *path,
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFC);
                 } else {
 		    if (f_verbose) {
-                        printf("%s: NFD & NFC", path);
+                        printf("%s: NFD (with NFC collision)", path);
 			if (f_time)
 			    p_time(sp, stdout);
 			putchar('\n');
