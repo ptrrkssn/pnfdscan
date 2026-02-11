@@ -640,7 +640,7 @@ main(int argc,
 		puts("  -s          Print summary");
 		puts("  -t          Print timestamps");
 		puts("  -c          Check mode (exit code 1 if NFD found)");
-		puts("  -r          Remove (instead of rename) NFC objects");
+		puts("  -r          Remove (instead of rename) older colliding objects");
                 puts("  -a          Autofix mode (use -aa to remove collisions)");
                 puts("  -x          Do not cross filesystem boundaries");
                 exit(0);
