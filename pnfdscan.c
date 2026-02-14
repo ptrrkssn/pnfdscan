@@ -70,6 +70,8 @@ int f_time = 0;
 int f_file = 0;
 int f_zero = 0;
 
+unsigned int n_scanned = 0;
+
 
 unsigned long n_ascii = 0;
 unsigned long n_nfd = 0;
@@ -715,8 +717,8 @@ main(int argc,
 	    fprintf(stderr, "Enter pathnames:\n");
 	
 	while ((rc = get_fname(stdin, &fname)) > 0) {
-	    if (f_verbose > 1)
-		fprintf(stderr, "%s\n", fname);
+	    if (f_verbose && isatty(2))
+		fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
 	    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 	    free(fname);
 	}
@@ -739,8 +741,8 @@ main(int argc,
 		}
 		
 		while ((rc = get_fname(fp, &fname)) > 0) {
-		    if (f_verbose > 1)
-			fprintf(stderr, "%s\n", fname);
+		    if (f_verbose && isatty(2))
+			fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
 		    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 		    free(fname);
 		}
@@ -751,14 +753,14 @@ main(int argc,
 		
 		fclose(fp);
 	    } else {
-		if (f_verbose > 1)
-		    fprintf(stderr, "%s\n", argv[i]);
+		if (f_verbose && isatty(2))
+		    fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, argv[i]);
 		nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 	    }
-	    spin(1);
 	}
     }
 
+    spin(1);
     if (!isatty(2))
       putc('\n', stderr);
     
