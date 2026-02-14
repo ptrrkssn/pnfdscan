@@ -67,6 +67,8 @@ int f_mount = 0;
 int f_summary = 0;
 int f_check = 0;
 int f_time = 0;
+int f_file = 0;
+int f_zero = 0;
 
 
 unsigned long n_ascii = 0;
@@ -582,6 +584,47 @@ mkunique(const char *name,
 
 
 int
+get_fname(FILE *fp,
+	  char **namep) {
+    char *buf = NULL;
+    size_t bsize = 0;
+    size_t blen = 0;
+    int c;
+
+
+    do {
+	while ((c = getc(fp)) != EOF) {
+	    int at_eol = (c == (f_zero ? '\0' : '\n'));
+	    
+	    if (blen == bsize) {
+		char *nbuf = realloc(buf, bsize += 1024);
+		
+		if (!nbuf) {
+		    if (buf)
+			free(buf);
+		    return -1;
+		}
+		buf = nbuf;
+	    }
+	    
+	    if (at_eol) {
+		buf[blen] = '\0';
+		break;
+	    }
+	    
+	    buf[blen++] = c;
+	}
+	
+	if (c == EOF)
+	    return 0;
+	
+    } while (blen == 0); /* Skip empty lines */
+    
+    *namep = buf;
+    return 1;
+}
+
+int
 main(int argc,
      char *argv[]) {
     int i, j;
@@ -600,6 +643,12 @@ main(int argc,
 		break;
 	    case 't':
 	        f_time++;
+		break;
+	    case 'f':
+	        f_file++;
+		break;
+	    case '0':
+	        f_zero++;
 		break;
             case 'v':
                 f_verbose++;
@@ -638,7 +687,10 @@ main(int argc,
                 puts("  -d          Increase debug level");
                 puts("  -i          Ignore non-fatal errors");
 		puts("  -s          Print summary");
+		puts("  -f          Read objects from files");
 		puts("  -t          Print timestamps");
+		puts("  -f          Read pathnames from the files specified");
+		puts("  -0          Use NUL instead of Newline as pathname separator in files");
 		puts("  -c          Check mode (exit code 1 if NFD found)");
 		puts("  -r          Remove (instead of rename) older colliding objects");
                 puts("  -a          Autofix mode (use -aa to remove collisions)");
@@ -654,12 +706,57 @@ main(int argc,
 		"[pnfdscan, version %s - %s]\n",
 		PACKAGE_VERSION, PACKAGE_URL);
     }
-    
-    for (; i < argc; i++) {
-	if (f_verbose > 1)
-	    fprintf(stderr, "%s\n", argv[i]);
-        nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
-	spin(1);
+
+    if (f_file && i == argc) {
+	char *fname = NULL;
+	int rc;
+
+	if (isatty(2))
+	    fprintf(stderr, "Enter pathnames:\n");
+	
+	while ((rc = get_fname(stdin, &fname)) > 0) {
+	    if (f_verbose > 1)
+		fprintf(stderr, "%s\n", fname);
+	    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+	    free(fname);
+	}
+	if (rc < 0) {
+	    fprintf(stderr, "%s: Error: <stdin>: %s\n", argv[0], strerror(errno));
+	    exit(1);
+	}
+    } else {
+	for (; i < argc; i++) {
+	    if (f_file) {
+		FILE *fp = NULL;
+		char *fname = NULL;
+		int rc;
+		
+		fp = fopen(argv[i], "r");
+		if (!fp) {
+		    fprintf(stderr, "%s: Error: %s: Opening: %s\n",
+			    argv[0], argv[i], strerror(errno));
+		    exit(1);
+		}
+		
+		while ((rc = get_fname(fp, &fname)) > 0) {
+		    if (f_verbose > 1)
+			fprintf(stderr, "%s\n", fname);
+		    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+		    free(fname);
+		}
+		if (rc < 0) {
+		    fprintf(stderr, "%s: Error: %s: %s\n", argv[0], argv[i], strerror(errno));
+		    exit(1);
+		}
+		
+		fclose(fp);
+	    } else {
+		if (f_verbose > 1)
+		    fprintf(stderr, "%s\n", argv[i]);
+		nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+	    }
+	    spin(1);
+	}
     }
 
     if (!isatty(2))
