@@ -322,7 +322,7 @@ spin(int last_f) {
     time_t now;
     double dt;
     
-    if (!isatty(2))
+    if (!isatty(fileno(stderr)))
         return;
 
     time(&now);
@@ -713,11 +713,11 @@ main(int argc,
 	char *fname = NULL;
 	int rc;
 
-	if (isatty(2))
+	if (isatty(fileno(stdin)) && isatty(fileno(stderr)))
 	    fprintf(stderr, "Enter pathnames:\n");
 	
 	while ((rc = get_fname(stdin, &fname)) > 0) {
-	    if (f_verbose && isatty(2))
+	    if (f_verbose && isatty(fileno(stderr)))
 		fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
 	    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 	    free(fname);
@@ -741,7 +741,7 @@ main(int argc,
 		}
 		
 		while ((rc = get_fname(fp, &fname)) > 0) {
-		    if (f_verbose && isatty(2))
+		    if (f_verbose && isatty(fileno(stderr)))
 			fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
 		    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 		    free(fname);
@@ -753,7 +753,7 @@ main(int argc,
 		
 		fclose(fp);
 	    } else {
-		if (f_verbose && isatty(2))
+		if (f_verbose && isatty(fileno(stderr)))
 		    fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, argv[i]);
 		nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
 	    }
@@ -761,7 +761,7 @@ main(int argc,
     }
 
     spin(1);
-    if (!isatty(2))
+    if (!isatty(fileno(stderr)))
       putc('\n', stderr);
     
     for (ap = actions; ap; ap = ap->next) {
