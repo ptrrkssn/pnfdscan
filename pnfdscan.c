@@ -143,6 +143,28 @@ add_action(char *dir,
     n_actions++;
 }
 
+void
+free_actions(void) {
+    while (actions) {
+	ACTION *cur = actions;
+
+	actions = cur->next;
+	
+	if (cur->nfc.name) {
+	    free(cur->nfc.name);
+	    cur->nfc.name = NULL;
+	}
+	if (cur->nfd.name) {
+	    free(cur->nfd.name);
+	    cur->nfd.name = NULL;
+	}
+	if (cur->dir) {
+	    free(cur->dir);
+	    cur->dir = NULL;
+	}
+	free(cur);
+    }
+}
 
 void
 setup(void) {
@@ -626,144 +648,16 @@ get_fname(FILE *fp,
     return 1;
 }
 
-int
-main(int argc,
-     char *argv[]) {
-    int i, j;
+
+void
+run_actions(void) {
     ACTION *ap;
     char *cwd = NULL;
-
-    argv0 = argv[0];
-
-    setup();
-
-    for (i = 1; i < argc && argv[i][0] == '-'; ++i)
-        for (j = 1; argv[i][j]; j++)
-            switch (argv[i][j]) {
-	    case 'V':
-		f_version++;
-		break;
-	    case 't':
-	        f_time++;
-		break;
-	    case 'f':
-	        f_file++;
-		break;
-	    case '0':
-	        f_zero++;
-		break;
-            case 'v':
-                f_verbose++;
-                break;
-            case 'a':
-                f_autofix++;
-                break;
-            case 'n':
-                f_update = 0;
-                break;
-            case 'i':
-                f_ignore++;
-                break;
-	    case 'r':
-		f_remove++;
-		break;
-	    case 's':
-		f_summary++;
-		break;
-	    case 'c':
-		f_check++;
-		break;
-            case 'd':
-                f_debug++;
-                break;
-            case 'x':
-                f_mount++;
-                break;
-            case 'h':
-                printf("Usage:\n  %s [<options>*] <path-1> [.. <path-N>]\n", argv[0]);
-                puts("\nOptions:");
-                puts("  -h          Display this");
-                puts("  -v          Increase verbosity");
-		puts("  -V          Display version");
-                puts("  -n          No-update (dry-run)");
-                puts("  -d          Increase debug level");
-                puts("  -i          Ignore non-fatal errors");
-		puts("  -s          Print summary");
-		puts("  -f          Read objects from files");
-		puts("  -t          Print timestamps");
-		puts("  -f          Read pathnames from the files specified");
-		puts("  -0          Use NUL instead of Newline as pathname separator in files");
-		puts("  -c          Check mode (exit code 1 if NFD found)");
-		puts("  -r          Remove (instead of rename) older colliding objects");
-                puts("  -a          Autofix mode (use -aa to remove collisions)");
-                puts("  -x          Do not cross filesystem boundaries");
-                exit(0);
-            default:
-                fprintf(stderr, "%s: Error: -%c: Invalid switch\n", argv[0], argv[i][j]);
-                exit(1);
-            }
-
-    if (f_version) {
-	fprintf(stderr,
-		"[pnfdscan, version %s - %s]\n",
-		PACKAGE_VERSION, PACKAGE_URL);
-    }
-
-    if (f_file && i == argc) {
-	char *fname = NULL;
-	int rc;
-
-	if (isatty(fileno(stdin)) && isatty(fileno(stderr)))
-	    fprintf(stderr, "Enter pathnames:\n");
-	
-	while ((rc = get_fname(stdin, &fname)) > 0) {
-	    if (f_verbose && isatty(fileno(stderr)))
-		fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
-	    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
-	    free(fname);
-	}
-	if (rc < 0) {
-	    fprintf(stderr, "%s: Error: <stdin>: %s\n", argv[0], strerror(errno));
-	    exit(1);
-	}
-    } else {
-	for (; i < argc; i++) {
-	    if (f_file) {
-		FILE *fp = NULL;
-		char *fname = NULL;
-		int rc;
-		
-		fp = fopen(argv[i], "r");
-		if (!fp) {
-		    fprintf(stderr, "%s: Error: %s: Opening: %s\n",
-			    argv[0], argv[i], strerror(errno));
-		    exit(1);
-		}
-		
-		while ((rc = get_fname(fp, &fname)) > 0) {
-		    if (f_verbose && isatty(fileno(stderr)))
-			fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
-		    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
-		    free(fname);
-		}
-		if (rc < 0) {
-		    fprintf(stderr, "%s: Error: %s: %s\n", argv[0], argv[i], strerror(errno));
-		    exit(1);
-		}
-		
-		fclose(fp);
-	    } else {
-		if (f_verbose && isatty(fileno(stderr)))
-		    fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, argv[i]);
-		nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
-	    }
-	}
-    }
-
+    
     spin(1);
     if (!isatty(fileno(stderr)))
-      putc('\n', stderr);
-    
+	putc('\n', stderr);
+
     for (ap = actions; ap; ap = ap->next) {
         if (!cwd || strcmp(cwd, ap->dir) != 0) {
             if (chdir(ap->dir) < 0) {
@@ -880,6 +774,148 @@ main(int argc,
 		       f_remove ? "Removed NFC & " : "");
 	    }
 	    break;
+	}
+    }
+}
+
+int
+main(int argc,
+     char *argv[]) {
+    int i, j;
+
+    
+    argv0 = argv[0];
+    setup();
+
+    for (i = 1; i < argc && argv[i][0] == '-'; ++i)
+        for (j = 1; argv[i][j]; j++)
+            switch (argv[i][j]) {
+	    case 'V':
+		f_version++;
+		break;
+	    case 't':
+	        f_time++;
+		break;
+	    case 'f':
+	        f_file++;
+		break;
+	    case '0':
+	        f_zero++;
+		break;
+            case 'v':
+                f_verbose++;
+                break;
+            case 'a':
+                f_autofix++;
+                break;
+            case 'n':
+                f_update = 0;
+                break;
+            case 'i':
+                f_ignore++;
+                break;
+	    case 'r':
+		f_remove++;
+		break;
+	    case 's':
+		f_summary++;
+		break;
+	    case 'c':
+		f_check++;
+		break;
+            case 'd':
+                f_debug++;
+                break;
+            case 'x':
+                f_mount++;
+                break;
+            case 'h':
+                printf("Usage:\n  %s [<options>*] <path-1> [.. <path-N>]\n", argv[0]);
+                puts("\nOptions:");
+                puts("  -h          Display this");
+                puts("  -v          Increase verbosity");
+		puts("  -V          Display version");
+                puts("  -n          No-update (dry-run)");
+                puts("  -d          Increase debug level");
+                puts("  -i          Ignore non-fatal errors");
+		puts("  -s          Print summary");
+		puts("  -f          Read objects from files");
+		puts("  -t          Print timestamps");
+		puts("  -f          Read pathnames from the files specified");
+		puts("  -0          Use NUL instead of Newline as pathname separator in files");
+		puts("  -c          Check mode (exit code 1 if NFD found)");
+		puts("  -r          Remove (instead of rename) older colliding objects");
+                puts("  -a          Autofix mode (use -aa to remove collisions)");
+                puts("  -x          Do not cross filesystem boundaries");
+                exit(0);
+            default:
+                fprintf(stderr, "%s: Error: -%c: Invalid switch\n", argv[0], argv[i][j]);
+                exit(1);
+            }
+
+    if (f_version) {
+	fprintf(stderr,
+		"[pnfdscan, version %s - %s]\n",
+		PACKAGE_VERSION, PACKAGE_URL);
+    }
+
+    if (f_file && i == argc) {
+	char *fname = NULL;
+	int rc;
+
+	if (isatty(fileno(stdin)) && isatty(fileno(stderr)))
+	    fprintf(stderr, "Enter pathnames:\n");
+	
+	while ((rc = get_fname(stdin, &fname)) > 0) {
+	    if (f_verbose && isatty(fileno(stderr)))
+		fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
+	    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+
+	    run_actions();
+	    free_actions();
+
+	    free(fname);
+	}
+	if (rc < 0) {
+	    fprintf(stderr, "%s: Error: <stdin>: %s\n", argv[0], strerror(errno));
+	    exit(1);
+	}
+    } else {
+	for (; i < argc; i++) {
+	    if (f_file) {
+		FILE *fp = NULL;
+		char *fname = NULL;
+		int rc;
+		
+		fp = fopen(argv[i], "r");
+		if (!fp) {
+		    fprintf(stderr, "%s: Error: %s: Opening: %s\n",
+			    argv[0], argv[i], strerror(errno));
+		    exit(1);
+		}
+		
+		while ((rc = get_fname(fp, &fname)) > 0) {
+		    if (f_verbose && isatty(fileno(stderr)))
+			fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, fname);
+		    nftw(fname, walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+		    
+		    run_actions();
+		    free_actions();
+	 	    free(fname);
+		}
+		if (rc < 0) {
+		    fprintf(stderr, "%s: Error: %s: %s\n", argv[0], argv[i], strerror(errno));
+		    exit(1);
+		}
+		
+		fclose(fp);
+	    } else {
+		if (f_verbose && isatty(fileno(stderr)))
+		    fprintf(stderr, "[%u : %s]                  \n", ++n_scanned, argv[i]);
+		nftw(argv[i], walker, 9999, FTW_PHYS|FTW_CHDIR|(f_mount ? FTW_MOUNT : 0));
+		run_actions();
+		free_actions();
+	    }
 	}
     }
 

@@ -1,5 +1,5 @@
 AC_PREREQ([2.71])
-AC_INIT([pnfdscan],[1.1.2],[pen@lysator.liu.se],[pnfdscan],[https://github.com/ptrrkssn/pnfdscan])
+AC_INIT([pnfdscan],[1.2.0],[pen@lysator.liu.se],[pnfdscan],[https://github.com/ptrrkssn/pnfdscan])
 AC_CONFIG_AUX_DIR([build-aux])
 
 AC_CONFIG_SRCDIR([pnfdscan.c])
