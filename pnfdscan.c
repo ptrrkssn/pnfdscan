@@ -508,15 +508,21 @@ walker(const char *path,
 
 		    if (f_autofix > 1)
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFD);
+		    else {
+			if (f_verbose) {
+			    printf("%s: Collision - NFD (with newer NFC collision) - Not fixing", path);
+			    if (f_time)
+				p_time(sp, stdout);
+			    putchar('\n');
+			}
+		    }
                 } else {
 		    if (f_verbose) {
-		        printf("%s: NFD (with NFC collision)", path);
+		        printf("%s: NFD (with newer NFC collision)", path);
 			if (f_time)
  			    p_time(sp, stdout);
 			putchar('\n');
-		    }
-			
-                    else
+		    } else
                         puts(path);
                 }
             } else {
@@ -531,9 +537,17 @@ walker(const char *path,
 
 		    if (f_autofix > 1)
 			add_action(dirname(path, NULL), sp, path+fp->base, &nfc_sb, nfc_output, ACT_REMOVE_NFC);
+		    else {
+			if (f_verbose) {
+			    printf("%s: Collision - NFD (with non-newer NFC collision) - Not fixing", path);
+			    if (f_time)
+				p_time(sp, stdout);
+			    putchar('\n');
+			}
+		    }
                 } else {
 		    if (f_verbose) {
-                        printf("%s: NFD (with NFC collision)", path);
+                        printf("%s: NFD (with non-newer NFC collision)", path);
 			if (f_time)
 			    p_time(sp, stdout);
 			putchar('\n');
